@@ -36,6 +36,7 @@ runs `claude auth login`).
 
 ```bash
 brew tap aspasskiy/claude-van-dam https://github.com/aspasskiy/claude-van-dam
+brew trust --cask aspasskiy/claude-van-dam/claude-van-dam   # Homebrew only loads casks from other taps once trusted
 brew install --cask claude-van-dam
 ```
 
