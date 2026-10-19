@@ -10,6 +10,12 @@ let package = Package(
             name: "SwapCore",
             path: "Sources/SwapCore"
         ),
+        // Terminal harness for SwapCore.
+        .executableTarget(
+            name: "claude-van-dam-cli",
+            dependencies: ["SwapCore"],
+            path: "Sources/claude-van-dam-cli"
+        ),
         .testTarget(
             name: "SwapCoreTests",
             dependencies: ["SwapCore"],
