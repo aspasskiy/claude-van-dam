@@ -29,14 +29,28 @@ Launch at Login, the menu bar label, Export/Import and Quit.
 
 ## Install
 
-Needs macOS 14+, Swift 6 (Xcode or the command line tools) and [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
-(adding an account runs `claude auth login`).
+Needs macOS 14+ and [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (adding an account
+runs `claude auth login`).
+
+**Homebrew**
+
+```bash
+brew install --cask aspasskiy/tap/claude-van-dam
+```
+
+Update with `brew upgrade --cask claude-van-dam`, remove with `brew uninstall --cask claude-van-dam`.
+
+**Download.** Get `Claude-Van-Dam-<version>.zip` from [Releases](https://github.com/aspasskiy/claude-van-dam/releases),
+unzip it and move `Claude Van Dam.app` to `/Applications`. Releases are signed with Developer ID and
+notarized by Apple, so they open without Gatekeeper warnings.
+
+**From source.** Needs Swift 6 (Xcode or the command line tools).
 
 ```bash
 ./build.sh --install   # builds "Claude Van Dam.app", copies it to /Applications and launches it
 ```
 
-The build is signed ad hoc, so build it yourself rather than downloading a copy from someone else.
+A source build is signed ad hoc and only meant for your own Mac.
 
 ## How it works
 
@@ -72,6 +86,9 @@ endpoints that can change without notice.
 swift build && swift test
 swift run claude-van-dam-cli list
 ```
+
+`./build.sh --release` signs the app with Developer ID, notarizes it and writes
+`build/Claude-Van-Dam-<version>.zip` with its SHA-256 for the release and the cask.
 
 ## License
 

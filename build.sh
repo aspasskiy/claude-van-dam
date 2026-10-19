@@ -1,12 +1,19 @@
 #!/bin/bash
 # Build "Claude Van Dam.app"; `./build.sh --install` also copies it to /Applications and (re)launches it.
+# `./build.sh --release` signs it with Developer ID, notarizes it and zips it for a GitHub release.
 set -euo pipefail
 cd "$(dirname "$0")"
 
 NAME="Claude Van Dam"
 EXE=ClaudeVanDam
 LABEL=$(plutil -extract CFBundleIdentifier raw Info.plist)
+VERSION=$(plutil -extract CFBundleShortVersionString raw Info.plist)
 APP="build/$NAME.app"
+MODE="${1:-}"
+# Release signing: the Developer ID identity in the login keychain and a notarytool profile
+# saved once with `xcrun notarytool store-credentials claude-van-dam --key … --key-id … --issuer …`.
+DEVELOPER_ID="${DEVELOPER_ID:-Developer ID Application: OCTAGONLAB LIMITED (6966J92GMC)}"
+NOTARY_PROFILE="${NOTARY_PROFILE:-claude-van-dam}"
 
 swift build -c release --product "$EXE"
 rm -rf "$APP"
@@ -21,10 +28,29 @@ for s in 16 32 128 256 512; do
     sips -z $((s*2)) $((s*2)) Resources/AppIcon.png --out "$ICONSET/icon_${s}x${s}@2x.png" >/dev/null
 done
 iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
-codesign --force --sign - "$APP" >/dev/null
-echo "built $APP"
-
-[[ "${1:-}" == "--install" ]] || exit 0
+if [[ $MODE != --release ]]; then
+    codesign --force --sign - "$APP" >/dev/null
+    echo "built $APP"
+    [[ $MODE == --install ]] || exit 0
+else
+    codesign --force --options runtime --timestamp --sign "$DEVELOPER_ID" "$APP"
+    ZIP="build/Claude-Van-Dam-$VERSION.zip"
+    rm -f "$ZIP"
+    ditto -c -k --keepParent "$APP" "$ZIP"
+    LOG=$(xcrun notarytool submit "$ZIP" --keychain-profile "$NOTARY_PROFILE" --wait | tee /dev/stderr)
+    if ! grep -q "status: Accepted" <<<"$LOG"; then
+        echo "notarization failed; details: xcrun notarytool log <id> --keychain-profile $NOTARY_PROFILE" >&2
+        exit 1
+    fi
+    xcrun stapler staple "$APP"
+    spctl -a -vv -t exec "$APP"
+    # Zip again so the download carries the stapled ticket.
+    rm "$ZIP"
+    ditto -c -k --keepParent "$APP" "$ZIP"
+    echo "released $ZIP"
+    shasum -a 256 "$ZIP"
+    exit 0
+fi
 
 DEST="/Applications/$NAME.app"
 AGENT=~/Library/LaunchAgents/$LABEL.plist
