@@ -1,0 +1,12 @@
+.DS_Store
+/.build/
+/build/
+/.swiftpm/
+/.vscode/
+/.idea/
+*.xcodeproj/
+xcuserdata/
+DerivedData/
+
+# Developer ID certificate + private key (never commit)
+/signing/
