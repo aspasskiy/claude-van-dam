@@ -10,5 +10,10 @@ let package = Package(
             name: "SwapCore",
             path: "Sources/SwapCore"
         ),
+        .testTarget(
+            name: "SwapCoreTests",
+            dependencies: ["SwapCore"],
+            path: "Tests/SwapCoreTests"
+        ),
     ]
 )
