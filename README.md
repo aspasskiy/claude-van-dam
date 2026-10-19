@@ -35,7 +35,8 @@ runs `claude auth login`).
 **Homebrew**
 
 ```bash
-brew install --cask aspasskiy/tap/claude-van-dam
+brew tap aspasskiy/claude-van-dam https://github.com/aspasskiy/claude-van-dam
+brew install --cask claude-van-dam
 ```
 
 Update with `brew upgrade --cask claude-van-dam`, remove with `brew uninstall --cask claude-van-dam`.
@@ -80,6 +81,7 @@ endpoints that can change without notice.
 | `Sources/ClaudeVanDam` | The app: status item, SwiftUI popover, settings menu |
 | `Sources/claude-van-dam-cli` | Terminal harness: `list`, `refresh`, `add`, `switch N`, `rotate`, `best`, `auto`, `remove N`, `export`, `import` |
 | `Tests/SwapCoreTests` | Auto-switch decision tests (`swift test`) |
+| `Casks/claude-van-dam.rb` | Homebrew cask (this repo doubles as its tap) |
 | `tools/make-icon.swift` | Draws `Resources/AppIcon.png`; `build.sh` turns it into the `.icns` |
 
 ```bash
@@ -88,7 +90,7 @@ swift run claude-van-dam-cli list
 ```
 
 `./build.sh --release` signs the app with Developer ID, notarizes it and writes
-`build/Claude-Van-Dam-<version>.zip` with its SHA-256 for the release and the cask.
+`build/Claude-Van-Dam-<version>.zip` with its SHA-256 for the release and `Casks/claude-van-dam.rb`.
 
 ## License
 
