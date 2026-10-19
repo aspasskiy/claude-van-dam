@@ -1,6 +1,6 @@
 #!/bin/bash
 # Build "Claude Van Dam.app"; `./build.sh --install` also copies it to /Applications and (re)launches it.
-# `./build.sh --release` signs it with Developer ID, notarizes it and zips it for a GitHub release.
+# `./build.sh --release` signs it with Developer ID, notarizes it and packs a .zip and a .dmg for a GitHub release.
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -14,6 +14,15 @@ MODE="${1:-}"
 # saved once with `xcrun notarytool store-credentials claude-van-dam --key … --key-id … --issuer …`.
 DEVELOPER_ID="${DEVELOPER_ID:-Developer ID Application: OCTAGONLAB LIMITED (6966J92GMC)}"
 NOTARY_PROFILE="${NOTARY_PROFILE:-claude-van-dam}"
+
+notarize() {
+    local log
+    log=$(xcrun notarytool submit "$1" --keychain-profile "$NOTARY_PROFILE" --wait | tee /dev/stderr)
+    if ! grep -q "status: Accepted" <<<"$log"; then
+        echo "notarization of $1 failed; details: xcrun notarytool log <id> --keychain-profile $NOTARY_PROFILE" >&2
+        exit 1
+    fi
+}
 
 swift build -c release --product "$EXE"
 rm -rf "$APP"
@@ -37,18 +46,25 @@ else
     ZIP="build/Claude-Van-Dam-$VERSION.zip"
     rm -f "$ZIP"
     ditto -c -k --keepParent "$APP" "$ZIP"
-    LOG=$(xcrun notarytool submit "$ZIP" --keychain-profile "$NOTARY_PROFILE" --wait | tee /dev/stderr)
-    if ! grep -q "status: Accepted" <<<"$LOG"; then
-        echo "notarization failed; details: xcrun notarytool log <id> --keychain-profile $NOTARY_PROFILE" >&2
-        exit 1
-    fi
+    notarize "$ZIP"
     xcrun stapler staple "$APP"
     spctl -a -vv -t exec "$APP"
     # Zip again so the download carries the stapled ticket.
     rm "$ZIP"
     ditto -c -k --keepParent "$APP" "$ZIP"
-    echo "released $ZIP"
-    shasum -a 256 "$ZIP"
+    # The same app in a drag-to-Applications disk image, notarized on its own.
+    DMG="build/Claude-Van-Dam-$VERSION.dmg"
+    STAGE=$(mktemp -d)
+    ditto "$APP" "$STAGE/$NAME.app"
+    ln -s /Applications "$STAGE/Applications"
+    rm -f "$DMG"
+    hdiutil create -volname "$NAME" -srcfolder "$STAGE" -fs HFS+ -format UDZO -quiet "$DMG"
+    codesign --force --timestamp --sign "$DEVELOPER_ID" "$DMG"
+    notarize "$DMG"
+    xcrun stapler staple "$DMG"
+    spctl -a -vv -t open --context context:primary-signature "$DMG"
+    echo "released $ZIP and $DMG"
+    shasum -a 256 "$ZIP" "$DMG"
     exit 0
 fi
 

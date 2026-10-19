@@ -42,9 +42,9 @@ brew install --cask claude-van-dam
 
 Update with `brew upgrade --cask claude-van-dam`, remove with `brew uninstall --cask claude-van-dam`.
 
-**Download.** Get `Claude-Van-Dam-<version>.zip` from [Releases](https://github.com/aspasskiy/claude-van-dam/releases),
-unzip it and move `Claude Van Dam.app` to `/Applications`. Releases are signed with Developer ID and
-notarized by Apple, so they open without Gatekeeper warnings.
+**Download.** Get `Claude-Van-Dam-<version>.dmg` from [Releases](https://github.com/aspasskiy/claude-van-dam/releases),
+open it and drag Claude Van Dam to Applications (a `.zip` with the same app is there too). Releases
+are signed with Developer ID and notarized by Apple, so they open without Gatekeeper warnings.
 
 **From source.** Needs Swift 6 (Xcode or the command line tools).
 
@@ -91,7 +91,8 @@ swift run claude-van-dam-cli list
 ```
 
 `./build.sh --release` signs the app with Developer ID, notarizes it and writes
-`build/Claude-Van-Dam-<version>.zip` with its SHA-256 for the release and `Casks/claude-van-dam.rb`.
+`build/Claude-Van-Dam-<version>.zip` and `.dmg` for the release, with their SHA-256 (the zip's goes
+into `Casks/claude-van-dam.rb`).
 
 ## License
 
