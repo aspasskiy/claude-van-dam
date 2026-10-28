@@ -1,6 +1,6 @@
 cask "claude-van-dam" do
-  version "1.0"
-  sha256 "c6f7d7fde2908136a71f69f03acea6e8a4b8908179cabc141a956880d8854f96"
+  version "1.1.0"
+  sha256 "45dc18437f259db8f9b924f1ab1f674be1a650ebe9b4bf327b7c12dccfc10ec4"
 
   url "https://github.com/aspasskiy/claude-van-dam/releases/download/v#{version}/Claude-Van-Dam-#{version}.zip"
   name "Claude Van Dam"
