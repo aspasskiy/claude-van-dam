@@ -142,7 +142,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         } else {
             popover.show(relativeTo: sender.bounds, of: sender, preferredEdge: .minY)
             popover.contentViewController?.view.window?.makeKey()
-            NSApp.activate()
+            // Cooperative activate() can land a second or two later, and landing
+            // while a context menu is open closes that menu.
+            NSApp.activate(ignoringOtherApps: true)
         }
     }
 
