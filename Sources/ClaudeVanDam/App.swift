@@ -45,6 +45,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
         store.start()
         updateButton()
+        NSApp.mainMenu = Self.mainMenu()
 
         if CommandLine.arguments.contains("--show"), let button = statusItem.button {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { self.togglePopover(button) }
@@ -63,6 +64,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
                 NSApp.terminate(nil)
             }
         }
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        store.cancelLogin()
+    }
+
+    /// Never shown (no Dock icon), but its shortcuts make ⌘C/⌘V/⌘W work in the login window.
+    private static func mainMenu() -> NSMenu {
+        let main = NSMenu()
+        let edit = NSMenu(title: "Edit")
+        edit.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
+        edit.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "Z")
+        edit.addItem(.separator())
+        edit.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        edit.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        edit.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        edit.addItem(.separator())
+        edit.addItem(withTitle: "Close Window", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        let item = NSMenuItem()
+        item.submenu = edit
+        main.addItem(item)
+        return main
     }
 
     /// ImageRenderer blends translucent fills correctly (cacheDisplay does not);

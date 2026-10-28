@@ -20,8 +20,11 @@ See your limits at a glance, switch in one click, and let it switch for you befo
   before the next check), the app moves to the account with the most headroom and sends a
   notification. You can set the threshold to 90, 95, 98 or 99%.
 - **Fresh tokens.** Expired logins on inactive accounts are renewed, so their numbers stay current.
-- **Accounts.** Add one with a browser login, log back in to a signed-out account, remove one, and
-  export or import the whole set.
+- **Accounts.** Add one, log back in to a signed-out account, remove one, and export or import the
+  whole set. Logging in opens a private window that uses none of your browser's sign-ins and approves
+  Claude Code's access once you're signed in. For an email login, paste the link from the email into
+  the window: it reads the code from it and enters it. A button there hands the page to your browser
+  instead (for a passkey, say).
 - **Keep awake.** Stops the Mac from sleeping while work runs. The display can still turn off and lock.
 
 Left-click the icon to open the popover. Right-click it for settings: Auto-Switch, Keep Awake,

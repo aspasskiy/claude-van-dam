@@ -333,7 +333,7 @@ private struct AccountRow: View {
     }
 }
 
-/// "+ Add account": runs `claude auth login` in Terminal and stores the result.
+/// "+ Add account": runs `claude auth login` in a private login window and stores the result.
 private struct AddAccountRow: View {
     @EnvironmentObject var store: Store
     @State private var hover = false

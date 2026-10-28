@@ -15,9 +15,12 @@ final class Store: ObservableObject {
     @Published private(set) var now = Date()
     /// A Claude Code login that isn't saved yet.
     @Published private(set) var unmanagedLogin: String?
-    /// Login in progress in Terminal: "" for a new account, else the email being re-logged.
+    /// Login in progress: "" for a new account, else the email being re-logged.
     @Published private(set) var loginPending: String?
     @Published private(set) var adding = false
+    private var loginWindow: LoginWindow?
+    /// The CLI finished, so the login it left is the result.
+    private var loginExited = false
     private var loginBaseline: LoginState?
     private var loginDeadline = Date.distantPast
     private var loginChecking = false
@@ -273,28 +276,48 @@ final class Store: ObservableObject {
         }
     }
 
-    /// Saves the current login, then runs `claude auth login` in Terminal and
-    /// stores whatever account it ends up logged in as.
+    /// Saves the current login, then runs `claude auth login` in a private
+    /// window and stores whatever account it ends up logged in as.
     func logIn(email: String?) {
         guard !Self.demo else { return }
         guard loginPending == nil, !adding else { return }
         loginPending = email ?? ""
+        let window = LoginWindow(email: email)
+        loginWindow = window
         let service = service
         Task {
             do {
                 let baseline = try await Task.detached(priority: .userInitiated) { try service.prepareLogin() }.value
-                try Self.openLoginTerminal(email: email)
+                guard loginWindow === window else { return }
                 loginBaseline = baseline
                 loginDeadline = Date().addingTimeInterval(15 * 60)
+                window.onCancel = { self.cancelLogin() }
+                window.onExit = { status, output in self.loginCLIExited(status, output) }
+                try await window.start()
                 error = nil
             } catch {
-                loginPending = nil
+                guard loginWindow === window else { return }
+                cancelLogin()
                 self.error = error.localizedDescription
             }
         }
     }
 
+    private func loginCLIExited(_ status: Int32, _ output: String) {
+        loginWindow = nil
+        guard status == 0 else {
+            cancelLogin()
+            error = output.isEmpty ? "The login didn't finish" : output
+            return
+        }
+        loginExited = true
+        loginDeadline = min(loginDeadline, Date().addingTimeInterval(20))
+    }
+
     func cancelLogin() {
+        loginWindow?.close()
+        loginWindow = nil
+        loginExited = false
         loginPending = nil
         loginBaseline = nil
         loginCandidate = nil
@@ -303,8 +326,11 @@ final class Store: ObservableObject {
 
     private func checkLogin() {
         guard let expected = loginPending, let baseline = loginBaseline, !loginChecking else { return }
+        // Read before the login state, so a token refresh seen just before the CLI exits isn't taken for its result.
+        let exited = loginExited
         if Date() > loginDeadline {
             cancelLogin()
+            if exited { error = "The login finished, but Claude Code's login didn't change" }
             return
         }
         loginChecking = true
@@ -326,7 +352,7 @@ final class Store: ObservableObject {
                 // A token refresh of the account we started on also changes the
                 // fingerprint: it got saved, but keep waiting for the real login.
                 let done = expected.isEmpty ? state.email != baseline.email || r.created : r.email == expected
-                if done {
+                if done || exited {
                     cancelLogin()
                     showNotice(r.created ? "Added \(r.email) as account \(r.number)" : "Logged in again as \(r.email)")
                 } else {
@@ -344,29 +370,6 @@ final class Store: ObservableObject {
             refresh()
         }
     }
-
-    /// A `.command` file opens in Terminal without Apple Events permission.
-    private static func openLoginTerminal(email: String?) throws {
-        let fm = FileManager.default
-        let local = fm.homeDirectoryForCurrentUser.appendingPathComponent(".local/bin/claude").path
-        let claude = fm.isExecutableFile(atPath: local) ? quote(local) : "claude"
-        let emailArg = email.map { " --email " + quote($0) } ?? ""
-        let script = """
-        #!/bin/zsh -l
-        clear
-        echo "Log in to Claude in your browser. \(AppInfo.name) saves the account when you're done."
-        echo
-        \(claude) auth login\(emailArg)
-        echo
-        echo "You can close this window."
-        """
-        let url = fm.temporaryDirectory.appendingPathComponent("\(AppInfo.name) Login.command")
-        try Data(script.utf8).write(to: url, options: .atomic)
-        chmod(url.path, 0o700)
-        guard NSWorkspace.shared.open(url) else { throw SwapError("Couldn't open Terminal") }
-    }
-
-    private static func quote(_ s: String) -> String { "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'" }
 
     /// A /login in Claude Code (or another switcher) rewrites
     /// ~/.claude.json; re-read when the logged-in identity there changes.
