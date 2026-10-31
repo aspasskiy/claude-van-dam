@@ -44,7 +44,8 @@ brew tap aspasskiy/claude-van-dam https://github.com/aspasskiy/claude-van-dam
 brew install --cask aspasskiy/claude-van-dam/claude-van-dam
 ```
 
-Update with `brew upgrade --cask claude-van-dam`, remove with `brew uninstall --cask claude-van-dam`.
+Update with `brew upgrade --cask claude-van-dam` (it keeps Launch at Login and reopens the app). Remove
+with `brew uninstall --zap --cask claude-van-dam`; `--zap` also removes the login item and settings.
 
 **Download.** Get `Claude-Van-Dam-<version>.dmg` from [Releases](https://github.com/aspasskiy/claude-van-dam/releases),
 open it and drag Claude Van Dam to Applications (a `.zip` with the same app is there too). Releases

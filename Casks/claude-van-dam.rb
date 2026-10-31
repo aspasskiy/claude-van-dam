@@ -11,9 +11,10 @@ cask "claude-van-dam" do
 
   app "Claude Van Dam.app"
 
-  uninstall launchctl: "site.spasskiy.claude-van-dam",
-            quit:      "site.spasskiy.claude-van-dam",
-            delete:    "~/Library/LaunchAgents/site.spasskiy.claude-van-dam.plist"
+  # `uninstall` also runs on every upgrade: removing the LaunchAgent there would turn
+  # Launch at Login off, and `delete:` always goes through sudo. The agent goes with zap.
+  uninstall quit: "site.spasskiy.claude-van-dam"
 
-  zap trash: "~/Library/Preferences/site.spasskiy.claude-van-dam.plist"
+  zap launchctl: "site.spasskiy.claude-van-dam",
+      trash:     "~/Library/Preferences/site.spasskiy.claude-van-dam.plist"
 end
