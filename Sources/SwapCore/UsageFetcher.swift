@@ -10,9 +10,11 @@ struct UsageFetcher {
 
     static let endpoint = URL(string: "https://api.anthropic.com/api/oauth/usage")!
     static let claimLease: Double = 90
+    /// How long a plan name from the profile endpoint is trusted.
+    static let planTTL: Double = 12 * 3600
 
     enum Outcome {
-        case success([String: Any]?)
+        case success([String: Any]?, plan: String? = nil)
         case failure(kind: String, retryAfter: Double?, struckFp: String? = nil)
     }
 
@@ -26,29 +28,32 @@ struct UsageFetcher {
         let liveSlot = roster.slot(for: LiveIdentity.load(paths))
         let wanted = roster.sequence.filter { roster.entries[$0].map { $0.kind == "oauth" } ?? false }
         guard let claims = reserve(wanted, roster: roster), !claims.isEmpty else { return }
+        let rows = UsageRow.loadAll(paths)
+        let now = Date().timeIntervalSince1970
 
         var outcomes: [Int: Outcome] = [:]
         for (i, n) in claims.keys.sorted().enumerated() {
             guard let e = roster.entries[n] else { continue }
             if i > 0 { usleep(250_000) } // stagger
+            let wantPlan = rows[n].map { now - ($0.planFetchedAt ?? 0) > Self.planTTL } ?? true
             if n == liveSlot {
                 guard let cred = creds.readLive().string, let token = Credentials.accessToken(cred), !token.isEmpty,
                       !Credentials.isExpired(cred) else {
                     continue // sentinel-only: release the claim without touching the row
                 }
-                let outcome = fetch(token: token)
+                let outcome = fetch(token: token, withPlan: wantPlan)
                 outcomes[n] = outcome
                 if case .success = outcome { resyncBackup(n, e, live: cred) }
             } else {
                 guard let cred = creds.readSlot(n, e.email).string else { continue }
-                outcomes[n] = fetchInactive(n, e, cred)
+                outcomes[n] = fetchInactive(n, e, cred, withPlan: wantPlan)
             }
         }
         record(claims: claims, outcomes: outcomes, roster: roster, liveSlot: liveSlot)
     }
 
     /// `try_fetch_usage_for_account` for an inactive slot.
-    private func fetchInactive(_ n: Int, _ e: Roster.Entry, _ cred: String) -> Outcome? {
+    private func fetchInactive(_ n: Int, _ e: Roster.Entry, _ cred: String, withPlan: Bool) -> Outcome? {
         let refresher = TokenRefresher(paths: paths)
         var working = cred
         let hasRefreshToken = !((Credentials.oauthObject(cred)?["refreshToken"] as? String) ?? "").isEmpty
@@ -68,7 +73,7 @@ struct UsageFetcher {
         guard let token = Credentials.accessToken(working), !token.isEmpty else {
             return .failure(kind: "no-access-token", retryAfter: nil)
         }
-        let first = fetch(token: token)
+        let first = fetch(token: token, withPlan: withPlan)
         guard case .failure("http-401", _, _) = first, hasRefreshToken else { return first }
 
         let r = refresher.consume(n, email: e.email, snapshot: working)
@@ -81,7 +86,7 @@ struct UsageFetcher {
             return .failure(kind: Self.deterministicRefreshErrors.contains(err) ? err : "refresh-failed", retryAfter: nil)
         }
         guard let fresh = Credentials.accessToken(c), !fresh.isEmpty else { return .failure(kind: "refresh-failed", retryAfter: nil) }
-        return fetch(token: fresh)
+        return fetch(token: fresh, withPlan: withPlan)
     }
 
     static func expiresAt(_ credential: String) -> Double {
@@ -111,7 +116,9 @@ struct UsageFetcher {
 
     // MARK: Network
 
-    func fetch(token: String) -> Outcome {
+    /// `withPlan` also reads the plan name from the profile endpoint (same token),
+    /// only after the usage call succeeds.
+    func fetch(token: String, withPlan: Bool = false) -> Outcome {
         var req = URLRequest(url: Self.endpoint, timeoutInterval: 5)
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         req.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
@@ -126,7 +133,27 @@ struct UsageFetcher {
             return .failure(kind: "http-\(http.statusCode)", retryAfter: ra)
         }
         guard let json = response.json else { return .failure(kind: "bad-response", retryAfter: nil) }
-        return .success(Self.parse(json))
+        let plan = withPlan ? Adder.fetchProfileJSON(token).flatMap(Self.planName) : nil
+        return .success(Self.parse(json), plan: plan)
+    }
+
+    /// `/api/oauth/profile` → "Ultra", "Max", "Pro", …: `plan_display_name` when the
+    /// server sends it, else derived from the org type and rate-limit tier
+    /// (Max 20x was renamed Ultra and Max 5x Max on 2026-10-30).
+    static func planName(_ profile: [String: Any]) -> String? {
+        guard let org = profile["organization"] as? [String: Any] else { return nil }
+        if let name = (org["plan_display_name"] as? String)?.trimmingCharacters(in: .whitespaces), !name.isEmpty {
+            return name
+        }
+        let type = (org["organization_type"] as? String ?? "").lowercased()
+        let tier = (org["rate_limit_tier"] as? String ?? "").lowercased()
+        switch type {
+        case "claude_max": return tier.contains("20x") ? "Ultra" : "Max"
+        case "claude_pro": return "Pro"
+        case "claude_team": return "Team"
+        case "claude_enterprise": return "Enterprise"
+        default: return nil
+        }
     }
 
     /// API response → the stored usage dict.
@@ -144,7 +171,13 @@ struct UsageFetcher {
             }
             return d
         }
-        if let w = window(r["five_hour"]) { out["five_hour"] = w }
+        if let w = window(r["five_hour"]) {
+            out["five_hour"] = w
+        } else if r["five_hour"] is NSNull, r["seven_day"] is [String: Any] {
+            // An idle account still gets a five_hour object (utilization 0, no reset);
+            // an explicit null means the account has no 5-hour limit (verified Ultra).
+            out["five_hour_unlimited"] = true
+        }
         if let w = window(r["seven_day"]) { out["seven_day"] = w }
         if let x = r["extra_usage"] as? [String: Any], x["is_enabled"] as? Bool == true,
            let used = UsageParser.number(x["used_credits"]), let limit = UsageParser.number(x["monthly_limit"]),
@@ -249,7 +282,11 @@ struct UsageFetcher {
             guard let outcome = outcomes[n] else { accounts[String(n)] = row; continue }
             row["lastAttemptAt"] = now
             switch outcome {
-            case .success(let usage):
+            case .success(let usage, let planName):
+                if let planName {
+                    row["plan"] = planName
+                    row["planFetchedAt"] = now
+                }
                 let plan = Self.plan(row: current, newUsage: usage, isActive: n == liveSlot, settings: settings, now: now)
                 row["lastGood"] = usage ?? NSNull()
                 row["fetchedAt"] = now

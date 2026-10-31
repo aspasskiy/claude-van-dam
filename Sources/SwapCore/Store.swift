@@ -98,6 +98,8 @@ struct UsageRow {
     var lastAttemptAt: Double? { UsageParser.number(raw["lastAttemptAt"]) }
     var authDeadStrikes: Int { (raw["authDeadStrikes"] as? NSNumber)?.intValue ?? 0 }
     var struckFingerprint: String? { raw["struckFingerprint"] as? String }
+    var plan: String? { raw["plan"] as? String }
+    var planFetchedAt: Double? { UsageParser.number(raw["planFetchedAt"]) }
 
     func matches(_ e: Roster.Entry) -> Bool { email == e.email && organizationUuid == e.organizationUuid }
 

@@ -30,6 +30,9 @@ public struct Usage: Equatable, Sendable {
     public let sevenDay: UsageWindow?
     public let scoped: [UsageWindow]
     public let spend: Spend?
+    /// The API reports no 5-hour window at all (`five_hour: null`): verified
+    /// Ultra accounts have only weekly limits since 2026-10-30.
+    public var sessionUnlimited: Bool = false
 
     /// The binding constraint: whichever of 5h / 7d is closer to 100%.
     public func tightest(at now: Date) -> Double? {
@@ -55,6 +58,8 @@ public struct Account: Identifiable, Equatable, Sendable {
     /// Last successful measurement, for display when `usage` is nil.
     public let lastGoodUsage: Usage?
     public let fetchedAt: Date?
+    /// Plan name as claude.ai shows it ("Ultra", "Max", "Pro", …).
+    public var plan: String? = nil
 
     public var id: Int { number }
     public var displayUsage: Usage? { usage ?? lastGoodUsage }
@@ -100,7 +105,8 @@ enum UsageParser {
             spend = Spend(used: used, limit: limit, pct: pct, currency: s["currency"] as? String ?? "USD",
                           resetsAt: ISODate.parse(s["resets_at"] as? String))
         }
-        return Usage(fiveHour: five, sevenDay: seven, scoped: scoped, spend: spend)
+        return Usage(fiveHour: five, sevenDay: seven, scoped: scoped, spend: spend,
+                     sessionUnlimited: five == nil && dict["five_hour_unlimited"] as? Bool == true)
     }
 
     private static func window(_ any: Any?, name: String?, weekly: Bool, fetchedAt: Date?) -> UsageWindow? {

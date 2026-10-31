@@ -129,15 +129,20 @@ struct Adder {
 
     /// GET /api/oauth/profile. nil = unresolvable.
     static func fetchProfile(_ token: String) -> (uuid: String, email: String?, organizationUuid: String?)? {
-        var req = URLRequest(url: URL(string: "https://api.anthropic.com/api/oauth/profile")!, timeoutInterval: 5)
-        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        let response = HTTP.send(req)
-        let body = response.status == 200 ? response.json : nil
+        let body = fetchProfileJSON(token)
         guard let account = body?["account"] as? [String: Any],
               let uuid = (account["uuid"] as? String)?.trimmingCharacters(in: .whitespaces), !uuid.isEmpty else { return nil }
         let org = (body?["organization"] as? [String: Any])?["uuid"] as? String
         return (uuid, account["email"] as? String, org)
+    }
+
+    /// The raw `/api/oauth/profile` body; nil unless 200.
+    static func fetchProfileJSON(_ token: String) -> [String: Any]? {
+        var req = URLRequest(url: URL(string: "https://api.anthropic.com/api/oauth/profile")!, timeoutInterval: 5)
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let response = HTTP.send(req)
+        return response.status == 200 ? response.json : nil
     }
 
     /// `UsageStore.clear_dead_token`: the new token

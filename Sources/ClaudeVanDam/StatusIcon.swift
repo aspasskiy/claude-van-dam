@@ -1,8 +1,9 @@
 import AppKit
 
-/// Two stacked bars for the active account: 5h on top, 7d below.
+/// Two stacked bars for the active account: 5h on top, 7d below. An account
+/// without a session limit (verified Ultra) gets one thicker bar for the week.
 enum StatusIcon {
-    static func image(fiveHour: Double?, sevenDay: Double?, dimmed: Bool) -> NSImage {
+    static func image(fiveHour: Double?, sevenDay: Double?, sessionUnlimited: Bool = false, dimmed: Bool) -> NSImage {
         let size = NSSize(width: 22, height: 16)
         let barHeight: CGFloat = 5
         let gap: CGFloat = 2.5
@@ -10,6 +11,11 @@ enum StatusIcon {
             // Drawn lazily inside the status button, so labelColor follows
             // the menu bar's light/dark appearance.
             let barWidth = rect.width - 1
+            if sessionUnlimited {
+                let h: CGFloat = 7
+                drawBar(in: NSRect(x: 0.5, y: rect.midY - h / 2, width: barWidth, height: h), pct: sevenDay, dimmed: dimmed)
+                return true
+            }
             let top = NSRect(x: 0.5, y: rect.midY + gap / 2, width: barWidth, height: barHeight)
             let bottom = NSRect(x: 0.5, y: rect.midY - gap / 2 - barHeight, width: barWidth, height: barHeight)
             drawBar(in: top, pct: fiveHour, dimmed: dimmed)

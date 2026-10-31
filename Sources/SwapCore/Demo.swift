@@ -7,19 +7,20 @@ public enum Demo {
             UsageWindow(name: name, pct: pct, resetsAt: now.addingTimeInterval(hours * 3600),
                         expectedPct: nil, aheadOfPace: nil, projectedExhaustionAt: nil, willLastToReset: nil)
         }
-        func usage(_ five: Double, _ fiveIn: Double, _ week: Double, _ weekIn: Double) -> Usage {
-            Usage(fiveHour: window(five, resetsIn: fiveIn), sevenDay: window(week, resetsIn: weekIn), scoped: [], spend: nil)
+        func usage(_ five: Double?, _ fiveIn: Double, _ week: Double, _ weekIn: Double) -> Usage {
+            Usage(fiveHour: five.map { window($0, resetsIn: fiveIn) }, sevenDay: window(week, resetsIn: weekIn),
+                  scoped: [], spend: nil, sessionUnlimited: five == nil)
         }
-        func account(_ n: Int, _ email: String, active: Bool = false, _ u: Usage?,
+        func account(_ n: Int, _ email: String, active: Bool = false, _ u: Usage?, plan: String,
                      status: UsageStatus = .ok, disabled: Bool = false) -> Account {
             Account(number: n, email: email, organizationName: "", organizationUuid: "demo-\(n)", alias: nil,
                     disabled: disabled, active: active, status: status, usage: u, lastGoodUsage: u,
-                    fetchedAt: now.addingTimeInterval(-90))
+                    fetchedAt: now.addingTimeInterval(-90), plan: plan)
         }
         return Snapshot(accounts: [
-            account(1, "work@example.com", active: true, usage(62, 2.3, 71, 52)),
-            account(2, "personal@example.com", usage(8, 4.6, 34, 101)),
-            account(3, "side@example.com", usage(100, 1.2, 88, 19)),
+            account(1, "work@example.com", active: true, usage(62, 2.3, 71, 52), plan: "Max"),
+            account(2, "personal@example.com", usage(nil, 0, 34, 101), plan: "Ultra"),
+            account(3, "side@example.com", usage(100, 1.2, 88, 19), plan: "Pro"),
         ])
     }
 }

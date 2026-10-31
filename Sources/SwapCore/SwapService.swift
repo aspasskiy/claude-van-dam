@@ -37,7 +37,7 @@ public struct SwapService: Sendable {
             return Account(number: n, email: e.email, organizationName: e.organizationName,
                            organizationUuid: e.organizationUuid, alias: e.alias, disabled: e.disabled,
                            active: n == live, status: status, usage: usage,
-                           lastGoodUsage: usage == nil ? lastGood : nil, fetchedAt: fetched)
+                           lastGoodUsage: usage == nil ? lastGood : nil, fetchedAt: fetched, plan: row?.plan)
         }
         return Snapshot(accounts: accounts, unmanagedLogin: live == nil ? identity?.email : nil)
     }

@@ -43,7 +43,8 @@ do {
         for a in snap.accounts {
             let u = a.displayUsage
             let age = a.fetchedAt.map { "\(Int(Date().timeIntervalSince($0)))s" } ?? "-"
-            print("\(a.active ? "*" : " ") \(a.number) \(a.email)  5h \(pct(u?.fiveHour))  7d \(pct(u?.sevenDay))  status=\(a.status.rawValue) stale=\(a.isStale) age=\(age)")
+            let five = u?.sessionUnlimited == true ? "none" : pct(u?.fiveHour)
+            print("\(a.active ? "*" : " ") \(a.number) \(a.email)  plan=\(a.plan ?? "-")  5h \(five)  7d \(pct(u?.sevenDay))  status=\(a.status.rawValue) stale=\(a.isStale) age=\(age)")
             if let w = u?.sevenDay {
                 print("    7d expected=\(w.expectedPct.map { "\($0)" } ?? "-") ahead=\(w.aheadOfPace.map { "\($0)" } ?? "-") willLast=\(w.willLastToReset.map { "\($0)" } ?? "-") exhaust=\(w.projectedExhaustionAt.map { ISO8601DateFormatter().string(from: $0) } ?? "-")")
             }

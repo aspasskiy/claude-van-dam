@@ -249,6 +249,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private struct TrayState: Equatable {
         let five: Int?
         let seven: Int?
+        let unlimited: Bool
         let dimmed: Bool
         let awake: Bool
         let title: String
@@ -266,6 +267,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         let usage = active?.displayUsage
         let five = usage?.fiveHour.map { Int($0.effectivePct(at: now).rounded()) }
         let seven = usage?.sevenDay.map { Int($0.effectivePct(at: now).rounded()) }
+        let unlimited = usage?.sessionUnlimited == true
 
         var parts: [String] = []
         let mode = store.trayText
@@ -278,20 +280,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
         var tip = [AppInfo.name]
         if let active {
-            tip.append("Active: \(active.title)")
-            if let five { tip.append("Session: \(five)%") }
+            tip.append("Active: \(active.title)" + (active.plan.map { " (\($0))" } ?? ""))
+            if let five { tip.append("Session: \(five)%") } else if unlimited { tip.append("Session: no limit") }
             if let seven { tip.append("Week: \(seven)%") }
         }
 
         if store.keepAwake { tip.append("Keeping the Mac awake") }
 
-        let state = TrayState(five: five, seven: seven, dimmed: active == nil || active?.usage == nil,
+        let state = TrayState(five: five, seven: seven, unlimited: unlimited, dimmed: active == nil || active?.usage == nil,
                               awake: store.keepAwake, title: parts.joined(separator: " "), tip: tip.joined(separator: "\n"))
         guard state != trayState else { return }
         trayState = state
 
         button.image = StatusIcon.image(fiveHour: state.five.map(Double.init), sevenDay: state.seven.map(Double.init),
-                                        dimmed: state.dimmed)
+                                        sessionUnlimited: state.unlimited, dimmed: state.dimmed)
         button.attributedTitle = NSAttributedString(
             string: state.title.isEmpty ? "" : " " + state.title,
             attributes: [.font: NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)]

@@ -100,6 +100,7 @@ private struct ActiveSection: View {
                     .font(.system(size: 12, weight: .medium))
                     .lineLimit(1)
                     .truncationMode(.middle)
+                if let plan = account.plan { PlanBadge(plan: plan) }
                 if let sub = account.subtitle {
                     Text(sub).font(.system(size: 11)).foregroundStyle(.tertiary).lineLimit(1)
                 }
@@ -108,8 +109,9 @@ private struct ActiveSection: View {
 
             if let usage {
                 HStack(alignment: .top, spacing: 0) {
-                    Gauge(title: "Session", window: usage.fiveHour, weekly: false)
+                    Gauge(title: "Session", window: usage.fiveHour, weekly: false, unlimited: usage.sessionUnlimited)
                         .frame(maxWidth: .infinity)
+                        .help(sessionHelp(usage))
                     Gauge(title: "Week", window: usage.sevenDay, weekly: true)
                         .frame(maxWidth: .infinity)
                 }
@@ -140,6 +142,14 @@ private struct ActiveSection: View {
         }
     }
 
+    private func sessionHelp(_ usage: Usage) -> String {
+        if usage.sessionUnlimited { return "No 5-hour session limit on this account — only the weekly limit applies" }
+        if account.plan == "Ultra" {
+            return "5-hour session limit. Ultra drops it once Anthropic verifies the account; until then this limit is temporary"
+        }
+        return "5-hour session limit"
+    }
+
     private func paceHint(_ w: UsageWindow?, now: Date) -> String? {
         guard let w, !w.hasRolled(at: now), w.pct < 100 else { return nil }
         if w.willLastToReset == false, let end = w.projectedExhaustionAt, end > now {
@@ -154,6 +164,7 @@ private struct Gauge: View {
     let title: String
     let window: UsageWindow?
     let weekly: Bool
+    var unlimited = false
     @EnvironmentObject var store: Store
 
     var body: some View {
@@ -163,18 +174,26 @@ private struct Gauge: View {
         VStack(spacing: 8) {
             ZStack {
                 Ring(pct: pct, expected: weekly && !rolled ? window?.expectedPct : nil)
-                HStack(alignment: .firstTextBaseline, spacing: 1) {
-                    Text("\(Int(pct.rounded()))")
-                        .font(.system(size: 22, weight: .semibold, design: .rounded).monospacedDigit())
-                        .contentTransition(.numericText())
-                    Text("%").font(.system(size: 11, weight: .medium, design: .rounded)).foregroundStyle(.secondary)
+                if unlimited {
+                    Text("∞")
+                        .font(.system(size: 26, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.secondary)
+                } else {
+                    HStack(alignment: .firstTextBaseline, spacing: 1) {
+                        Text("\(Int(pct.rounded()))")
+                            .font(.system(size: 22, weight: .semibold, design: .rounded).monospacedDigit())
+                            .contentTransition(.numericText())
+                        Text("%").font(.system(size: 11, weight: .medium, design: .rounded)).foregroundStyle(.secondary)
+                    }
                 }
             }
             .frame(width: 76, height: 76)
             VStack(spacing: 2) {
                 Text(title).font(.system(size: 11, weight: .medium))
                 Group {
-                    if rolled {
+                    if unlimited {
+                        Text("no limit")
+                    } else if rolled {
                         Text("reset")
                     } else if let reset = window?.resetsAt {
                         Text("\(Fmt.countdown(to: reset, from: now)) · \(Fmt.clock(reset, now: now))")
@@ -270,6 +289,7 @@ private struct AccountRow: View {
                             .font(.system(size: 12))
                             .lineLimit(1)
                             .truncationMode(.middle)
+                        if let plan = account.plan { PlanBadge(plan: plan) }
                         if account.disabled {
                             Text("paused").font(.system(size: 10)).foregroundStyle(.tertiary)
                         }
@@ -281,7 +301,7 @@ private struct AccountRow: View {
                         .lineLimit(1)
                 }
                 HStack(spacing: 6) {
-                    MiniStat(pct: five)
+                    MiniStat(pct: five, unlimited: usage?.sessionUnlimited == true)
                     MiniStat(pct: seven)
                 }
                 .opacity(account.isStale ? 0.5 : 1)
@@ -398,15 +418,35 @@ private struct UnmanagedLoginRow: View {
 /// Session / week as a tiny vertical pair: bar + number.
 private struct MiniStat: View {
     let pct: Double?
+    var unlimited = false
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 3) {
-            Text(pct.map(Fmt.pct) ?? "—")
+            Text(unlimited ? "∞" : pct.map(Fmt.pct) ?? "—")
                 .font(.system(size: 10.5, weight: .medium).monospacedDigit())
                 .foregroundStyle(.secondary)
             Bar(pct: pct ?? 0, height: 3)
         }
         .frame(width: 34)
+        .help(unlimited ? "No session limit" : "")
+    }
+}
+
+/// "Ultra", "Max", "Pro": the account's plan, from claude.ai's profile.
+private struct PlanBadge: View {
+    let plan: String
+
+    var body: some View {
+        let top = plan.lowercased() == "ultra"
+        let tint = top ? Color(red: 0.85, green: 0.47, blue: 0.34) : Color.secondary
+        Text(plan)
+            .font(.system(size: 9.5, weight: .semibold))
+            .foregroundStyle(tint)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 1)
+            .background(Capsule().fill(tint.opacity(top ? 0.14 : 0.1)))
+            .fixedSize()
+            .help("\(plan) plan")
     }
 }
 
