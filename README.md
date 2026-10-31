@@ -13,7 +13,9 @@ See your limits at a glance, switch in one click, and let it switch for you befo
 ## Features
 
 - **Limits in the menu bar.** Two bars, one for the 5-hour session and one for the week, plus the
-  tighter of the two as a number. ![Menu bar](docs/screenshots/tray-dark.png)
+  tighter of the two as a number. A verified Ultra account has no 5-hour limit, so it gets a single
+  bar for the week and its Session gauge shows ∞. ![Menu bar](docs/screenshots/tray-dark.png)
+- **Plan badges.** Each account shows its plan (Ultra, Max, Pro, …) as claude.ai names it.
 - **One-click switching.** Click an account to make it Claude Code's login. Running sessions pick it
   up within about 30 seconds.
 - **Auto-switch** (off by default). When the active account reaches 95% (or looks set to hit 100%
